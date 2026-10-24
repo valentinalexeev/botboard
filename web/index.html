@@ -27,16 +27,16 @@
   section h2 { margin:0 0 14px; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); font-weight:600; }
   #notes-pane { border-left:1px solid var(--line); background:var(--panel); }
   #cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; align-items:start; }
-  .card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--c,var(--other)); border-radius:8px; padding:14px 16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--c,var(--other)); border-radius:8px; padding:14px 16px; min-width:0; }
   .card.flash { animation:flash 1.2s ease-out; }
   @keyframes flash { from { box-shadow:0 0 0 2px var(--c,var(--accent)); } to { box-shadow:0 0 0 0 transparent; } }
   .row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .agent { font-weight:700; font-size:16px; }
   .phase { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--c,var(--other));
            border:1px solid var(--c,var(--other)); border-radius:99px; padding:2px 9px; white-space:nowrap; }
-  .project { color:var(--dim); font-size:13px; margin-top:2px; }
-  .task { margin:10px 0 8px; font-weight:600; }
-  .activity { color:var(--dim); font-size:14px; border-top:1px dashed var(--line); padding-top:8px; }
+  .project { color:var(--dim); font-size:13px; margin-top:2px; overflow-wrap:anywhere; }
+  .task { margin:10px 0 8px; font-weight:600; overflow-wrap:anywhere; }
+  .activity { color:var(--dim); font-size:14px; overflow-wrap:anywhere; border-top:1px dashed var(--line); padding-top:8px; }
   .when { font-size:12px; color:var(--dim); margin-top:6px; }
   .note { padding:11px 0; border-bottom:1px solid var(--line); animation:in .3s ease-out; }
   @keyframes in { from { opacity:0; transform:translateY(-6px); } }
