@@ -1,0 +1,19 @@
+# Stock Fly config for botboard. Copy it into your own deployment repo and adjust.
+# No [[services]]: nothing is exposed through Fly's proxy; the app is reachable only on the tailnet
+# (http://<TS_HOSTNAME>/). Node state lives in Redis, so no volume is needed.
+app = "botboard"
+primary_region = "ams"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  image = "ghcr.io/valentinalexeev/botboard:latest"
+
+[env]
+  TS_HOSTNAME = "botboard"
+  # TS_CONTROL_URL = "https://headscale.example.com"   # unset = Tailscale's own control plane
+  # Secrets (flyctl secrets set): TS_AUTHKEY (first registration only), REDIS_URL (e.g. redis://default:...@host:6379), optional BOTBOARD_STATE_KEY (encrypts the state in Redis)
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
