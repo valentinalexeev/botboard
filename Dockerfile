@@ -14,7 +14,7 @@ COPY --from=build /botboard /usr/local/bin/botboard
 #   TS_CONTROL_URL  coordination server, e.g. https://headscale.example.com (default: Tailscale)
 #   TS_HOSTNAME     node name on the tailnet (default: botboard)
 #   REDIS_URL       keep node state in Redis (shared by many apps); else it is kept in TS_STATE_DIR
-#   REDIS_KEY       Redis hash key for the state (default: tsnet/<TS_HOSTNAME>)
+#   REDIS_KEY       Redis hash key for the state (default: <FLY_APP_NAME or TS_HOSTNAME>:tsnet)
 ENV TS_STATE_DIR=/var/lib/botboard
 RUN mkdir -p /var/lib/botboard
 ENTRYPOINT ["botboard"]

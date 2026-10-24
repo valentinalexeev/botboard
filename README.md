@@ -24,8 +24,8 @@ Access control is the tailnet itself (use ACLs); if `agent` is omitted, the call
 on every push to `main` (also `vX.Y.Z` tags and `sha-*`; linux/amd64 and arm64). Configuration is by env:
 `TS_AUTHKEY`, `TS_CONTROL_URL`, `TS_HOSTNAME`, `TS_STATE_DIR`, `REDIS_URL`, `REDIS_KEY`.
 
-With `REDIS_URL` the tailnet identity is stored in a Redis hash (`REDIS_KEY`, default `tsnet/<hostname>`),
-so many small machines can share one Redis instead of each needing a persistent volume. Without it the state
+With `REDIS_URL` the tailnet identity is stored in a Redis hash (`REDIS_KEY`, default `<FLY_APP_NAME or hostname>:tsnet`),
+so many small machines can share one Redis instead of each needing a persistent volume. The default key follows the shared-Redis rule of prefixing every key with the app name (on Fly the prefix is `FLY_APP_NAME`); it has no TTL on purpose, since losing it means re-registering the node. Use a plain `redis://` URL on Fly's private network (no TLS). Without it the state
 is kept in `TS_STATE_DIR` (mount a volume there to keep the identity across restarts). `fly.toml` is a stock
 Fly config that runs the image with no public port. The package is private by default; make it public in the
 package settings if your deployment pulls without credentials.

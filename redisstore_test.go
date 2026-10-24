@@ -10,7 +10,7 @@ import (
 
 func TestRedisStore(t *testing.T) {
 	mr := miniredis.RunT(t)
-	s, err := newRedisStore("redis://"+mr.Addr(), "tsnet/test")
+	s, err := newRedisStore("redis://"+mr.Addr(), "botboard:tsnet")
 	if err != nil {
 		t.Fatal(err)
 	}
