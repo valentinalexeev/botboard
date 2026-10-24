@@ -12,7 +12,7 @@ kill_timeout = "5s"
 [env]
   TS_HOSTNAME = "botboard"
   # TS_CONTROL_URL = "https://headscale.example.com"   # unset = Tailscale's own control plane
-  # Secrets (flyctl secrets set): TS_AUTHKEY (first registration only), REDIS_URL (e.g. redis://default:...@host:6379)
+  # Secrets (flyctl secrets set): TS_AUTHKEY (first registration only), REDIS_URL (e.g. redis://default:...@host:6379), optional BOTBOARD_STATE_KEY (encrypts the state in Redis)
 
 [[vm]]
   size = "shared-cpu-1x"

@@ -68,9 +68,16 @@ func main() {
 				// Shared Redis rule: every key is prefixed with the app name (<app>:<key>).
 				key = env("FLY_APP_NAME", *hostname) + ":tsnet"
 			}
-			if ts.Store, err = newRedisStore(*redisURL, key); err != nil {
-				log.Fatalf("redis state store: %v", err)
+			rs, rerr := newRedisStore(*redisURL, key)
+			if rerr != nil {
+				log.Fatalf("redis state store: %v", rerr)
 			}
+			// Optional at-rest encryption (BOTBOARD_STATE_KEY); off when unset.
+			if ts.Store, err = newEncStore(rs, os.Getenv("BOTBOARD_STATE_KEY"), key); err != nil {
+				log.Fatal(err)
+			}
+		} else if os.Getenv("BOTBOARD_STATE_KEY") != "" {
+			log.Print("warning: BOTBOARD_STATE_KEY only applies to Redis state (REDIS_URL); ignored")
 		}
 		if srv.lc, err = ts.LocalClient(); err != nil {
 			log.Fatal(err)

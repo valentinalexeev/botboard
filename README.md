@@ -25,7 +25,7 @@ on every push to `main` (also `vX.Y.Z` tags and `sha-*`; linux/amd64 and arm64).
 `TS_AUTHKEY`, `TS_CONTROL_URL`, `TS_HOSTNAME`, `TS_STATE_DIR`, `REDIS_URL`, `REDIS_KEY`.
 
 With `REDIS_URL` the tailnet identity is stored in a Redis hash (`REDIS_KEY`, default `<FLY_APP_NAME or hostname>:tsnet`),
-so many small machines can share one Redis instead of each needing a persistent volume. The default key follows the shared-Redis rule of prefixing every key with the app name (on Fly the prefix is `FLY_APP_NAME`); it has no TTL on purpose, since losing it means re-registering the node. Use a plain `redis://` URL on Fly's private network (no TLS). Without it the state
+so many small machines can share one Redis instead of each needing a persistent volume. The default key follows the shared-Redis rule of prefixing every key with the app name (on Fly the prefix is `FLY_APP_NAME`); it has no TTL on purpose, since losing it means re-registering the node. Use a plain `redis://` URL on Fly's private network (no TLS). Set `BOTBOARD_STATE_KEY` (`openssl rand -base64 32`, a Fly secret) to also encrypt it at rest with AES-256-GCM, bound to the Redis key and state id; it protects against other readers of a shared Redis, not against someone who can read this app's secrets. Enabling it on an existing plaintext state, or losing the key, makes startup fail with a clear error: delete the hash key and the node re-registers. Without Redis the state
 is kept in `TS_STATE_DIR` (mount a volume there to keep the identity across restarts). `fly.toml` is a stock
 Fly config that runs the image with no public port. The package is private by default; make it public in the
 package settings if your deployment pulls without credentials.
