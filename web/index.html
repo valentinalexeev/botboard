@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Botboard</title>
+<style>
+  :root {
+    --bg:#0e1116; --panel:#161b22; --line:#262d38; --text:#e6edf3; --dim:#8b96a5; --accent:#58a6ff;
+    --design:#c084fc; --plan:#a78bfa; --build:#58a6ff; --test:#fbbf24; --review:#f472b6;
+    --deploy:#34d399; --done:#4ade80; --blocked:#f87171; --other:#8b96a5;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f4f6f8; --panel:#fff; --line:#d8dee6; --text:#1b2330; --dim:#667385; }
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { background:var(--bg); color:var(--text); font:15px/1.4 system-ui,sans-serif; display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:18px; margin:0; letter-spacing:.02em; }
+  .spacer { flex:1; }
+  #status { font-size:13px; color:var(--dim); display:flex; align-items:center; gap:6px; }
+  #status i { width:9px; height:9px; border-radius:50%; background:var(--blocked); display:inline-block; }
+  #status.on i { background:var(--done); }
+  main { flex:1; min-height:0; display:grid; grid-template-columns:1fr 340px; }
+  section { overflow-y:auto; padding:20px; }
+  section h2 { margin:0 0 14px; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); font-weight:600; }
+  #notes-pane { border-left:1px solid var(--line); background:var(--panel); }
+  #cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; align-items:start; }
+  .card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--c,var(--other)); border-radius:8px; padding:14px 16px; }
+  .card.flash { animation:flash 1.2s ease-out; }
+  @keyframes flash { from { box-shadow:0 0 0 2px var(--c,var(--accent)); } to { box-shadow:0 0 0 0 transparent; } }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .agent { font-weight:700; font-size:16px; }
+  .phase { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--c,var(--other));
+           border:1px solid var(--c,var(--other)); border-radius:99px; padding:2px 9px; white-space:nowrap; }
+  .project { color:var(--dim); font-size:13px; margin-top:2px; }
+  .task { margin:10px 0 8px; font-weight:600; }
+  .activity { color:var(--dim); font-size:14px; border-top:1px dashed var(--line); padding-top:8px; }
+  .when { font-size:12px; color:var(--dim); margin-top:6px; }
+  .note { padding:11px 0; border-bottom:1px solid var(--line); animation:in .3s ease-out; }
+  @keyframes in { from { opacity:0; transform:translateY(-6px); } }
+  .note b { font-size:14px; } .note .meta { color:var(--dim); font-size:12px; }
+  .note p { margin:3px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .empty { color:var(--dim); font-style:italic; }
+  @media (max-width:800px) { main { grid-template-columns:1fr; overflow-y:auto; } #notes-pane { border-left:0; border-top:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🤖 Botboard</h1>
+  <span class="spacer"></span>
+  <span id="status"><i></i><span>connecting…</span></span>
+</header>
+<main>
+  <section><h2>Working now</h2><div id="cards"></div><p id="cards-empty" class="empty">No agents have reported in yet.</p></section>
+  <section id="notes-pane"><h2>Notes</h2><div id="notes"></div><p id="notes-empty" class="empty">Nothing yet.</p></section>
+</main>
+<script>
+const PHASES = {design:'--design', plan:'--plan', build:'--build', test:'--test', review:'--review',
+                deploy:'--deploy', done:'--done', blocked:'--blocked'};
+const cards = new Map(), notes = new Map();
+const $ = id => document.getElementById(id);
+
+function ago(iso) {
+  const s = Math.max(0, (Date.now() - new Date(iso)) / 1000);
+  if (s < 10) return 'just now';
+  if (s < 60) return Math.floor(s) + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;   // textContent only: agent input is never HTML
+  return e;
+}
+function renderCards(flashId) {
+  const list = [...cards.values()].sort((a, b) => new Date(b.updated) - new Date(a.updated));
+  const box = $('cards');
+  box.replaceChildren(...list.map(c => {
+    const d = el('div', 'card' + (c.id === flashId ? ' flash' : ''));
+    d.style.setProperty('--c', `var(${PHASES[c.phase] || '--other'})`);
+    const top = el('div', 'row');
+    top.append(el('span', 'agent', c.agent), c.phase ? el('span', 'phase', c.phase) : '');
+    d.append(top);
+    if (c.project) d.append(el('div', 'project', c.project));
+    if (c.task) d.append(el('div', 'task', c.task));
+    if (c.activity) d.append(el('div', 'activity', c.activity));
+    const w = el('div', 'when', ago(c.updated)); w.dataset.t = c.updated;
+    d.append(w);
+    return d;
+  }));
+  $('cards-empty').hidden = list.length > 0;
+}
+function noteEl(n) {
+  const d = el('div', 'note');
+  const m = el('div', 'meta');
+  m.append(el('b', '', n.agent), ' ' + (n.project ? '· ' + n.project + ' ' : '· '));
+  const t = el('span', '', ago(n.time)); t.dataset.t = n.time;
+  m.append(t);
+  d.append(m, el('p', '', n.text));
+  return d;
+}
+function renderNotes() {
+  const list = [...notes.values()].sort((a, b) => b.id - a.id);
+  $('notes').replaceChildren(...list.map(noteEl));
+  $('notes-empty').hidden = list.length > 0;
+}
+function setStatus(on, text) {
+  $('status').className = on ? 'on' : '';
+  $('status').lastChild.textContent = text;
+}
+
+let retry = 500;
+function connect() {
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onopen = () => { retry = 500; setStatus(true, 'live'); };
+  ws.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    switch (m.type) {
+      case 'snapshot':
+        cards.clear(); notes.clear();
+        m.cards.forEach(c => cards.set(c.id, c));
+        m.notes.forEach(n => notes.set(n.id, n));
+        renderCards(); renderNotes(); break;
+      case 'card': cards.set(m.card.id, m.card); renderCards(m.card.id); break;
+      case 'card_removed': cards.delete(m.id); renderCards(); break;
+      case 'note':
+        if (!notes.has(m.note.id)) { notes.set(m.note.id, m.note); renderNotes(); }
+        break;
+    }
+  };
+  ws.onclose = () => {
+    setStatus(false, 'disconnected, retrying…');
+    setTimeout(connect, retry);
+    retry = Math.min(retry * 2, 10000);
+  };
+}
+setInterval(() => document.querySelectorAll('[data-t]').forEach(e => e.textContent = ago(e.dataset.t)), 15000);
+connect();
+</script>
+</body>
+</html>
