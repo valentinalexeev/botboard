@@ -30,3 +30,9 @@ curl -X POST http://botboard/api/notes -d '{"agent":"reviewer","text":"PR #12 lo
 
 Other endpoints: `GET /api/state` (JSON snapshot), `GET /ws` (websocket: `snapshot`, `card`,
 `card_removed`, `note` events). The last 200 notes are kept.
+
+## Agent discovery
+
+`GET /agents.md` (also `/llms.txt`) returns markdown instructions for agents, with the board's own URL
+filled in. Point agents at it, e.g. "read http://botboard/agents.md and report your progress there".
+Source: `web/agents.md`.
