@@ -43,6 +43,8 @@ func main() {
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(webFS, "web")
 	mux.Handle("GET /", http.FileServerFS(sub))
+	mux.HandleFunc("GET /agents.md", srv.handleAgentsDoc)
+	mux.HandleFunc("GET /llms.txt", srv.handleAgentsDoc)
 	mux.HandleFunc("GET /ws", srv.handleWS)
 	mux.HandleFunc("GET /api/state", srv.handleState)
 	mux.HandleFunc("POST /api/cards", srv.handlePostCard)
@@ -217,4 +219,20 @@ func (s *server) handleWS(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// handleAgentsDoc serves the agent instructions with the URL the caller used filled in.
+func (s *server) handleAgentsDoc(w http.ResponseWriter, r *http.Request) {
+	doc, err := webFS.ReadFile("web/agents.md")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	base := scheme + "://" + r.Host
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Write([]byte(strings.ReplaceAll(string(doc), "{{BASE}}", base)))
 }
