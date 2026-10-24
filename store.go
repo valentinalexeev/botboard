@@ -17,6 +17,7 @@ type Card struct {
 	Task     string    `json:"task"`
 	Phase    string    `json:"phase"`
 	Activity string    `json:"activity"`
+	URL      string    `json:"url,omitempty"`
 	Updated  time.Time `json:"updated"`
 }
 
@@ -26,6 +27,7 @@ type Note struct {
 	Agent   string    `json:"agent"`
 	Text    string    `json:"text"`
 	Project string    `json:"project,omitempty"`
+	URL     string    `json:"url,omitempty"`
 	Time    time.Time `json:"time"`
 }
 
@@ -82,6 +84,9 @@ func (s *Store) UpsertCard(c Card) Card {
 		}
 		if c.Activity == "" {
 			c.Activity = old.Activity
+		}
+		if c.URL == "" {
+			c.URL = old.URL
 		}
 	}
 	c.Updated = time.Now()
