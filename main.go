@@ -32,11 +32,13 @@ type server struct {
 
 func main() {
 	var (
-		hostname = flag.String("hostname", "botboard", "tailnet hostname")
-		stateDir = flag.String("state-dir", "", "tsnet state dir (default: user config dir)")
+		hostname = flag.String("hostname", env("TS_HOSTNAME", "botboard"), "tailnet hostname (env TS_HOSTNAME)")
+		stateDir = flag.String("state-dir", os.Getenv("TS_STATE_DIR"), "tsnet state dir (env TS_STATE_DIR; default: user config dir)")
+		redisURL = flag.String("redis-url", os.Getenv("REDIS_URL"), "keep tailnet state in this Redis instead of on disk (env REDIS_URL)")
+		redisKey = flag.String("redis-key", os.Getenv("REDIS_KEY"), "Redis hash key for the state (env REDIS_KEY; default tsnet/<hostname>)")
 		control  = flag.String("control-url", os.Getenv("TS_CONTROL_URL"), "coordination server URL, e.g. https://headscale.example.com (default: Tailscale; env TS_CONTROL_URL)")
-		useTLS   = flag.Bool("tls", false, "serve HTTPS on :443 with a Tailscale cert (needs HTTPS enabled in the tailnet)")
-		local_   = flag.String("local", "", "skip Tailscale and listen on this address instead, e.g. :8080 (for development)")
+		useTLS   = flag.Bool("tls", os.Getenv("BOTBOARD_TLS") == "1", "serve HTTPS on :443 with a Tailscale cert (needs HTTPS enabled in the tailnet)")
+		local_   = flag.String("local", os.Getenv("BOTBOARD_LOCAL"), "skip Tailscale and listen on this address instead, e.g. :8080 (for development)")
 	)
 	flag.Parse()
 
@@ -60,6 +62,15 @@ func main() {
 	} else {
 		ts := &tsnet.Server{Hostname: *hostname, Dir: *stateDir, ControlURL: *control} // TS_AUTHKEY is read from the environment
 		defer ts.Close()
+		if *redisURL != "" {
+			key := *redisKey
+			if key == "" {
+				key = "tsnet/" + *hostname
+			}
+			if ts.Store, err = newRedisStore(*redisURL, key); err != nil {
+				log.Fatalf("redis state store: %v", err)
+			}
+		}
 		if srv.lc, err = ts.LocalClient(); err != nil {
 			log.Fatal(err)
 		}
@@ -100,6 +111,13 @@ func main() {
 	if err := hs.Serve(ln); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+func env(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
 }
 
 // whoami returns the tailnet identity of the caller (node name), or "" if unknown.
