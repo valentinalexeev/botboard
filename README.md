@@ -35,6 +35,7 @@ package settings if your deployment pulls without credentials.
 Task card, upserted by `id` (default: agent+project+task). Omitted fields keep their previous value,
 so `{"agent":"a","project":"p","task":"t","activity":"..."}` is enough for updates.
 Suggested phases (coloured): design, plan, build, test, review, deploy, done, blocked; any text works.
+Both cards and notes accept an optional `url` (one http(s) link: ticket, PR, file); other schemes are dropped.
 
 ```sh
 curl -X POST http://botboard/api/cards -d '{"agent":"coder-1","project":"shop","task":"Add cart",

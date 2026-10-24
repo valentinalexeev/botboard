@@ -42,6 +42,8 @@
   @keyframes in { from { opacity:0; transform:translateY(-6px); } }
   .note b { font-size:14px; } .note .meta { color:var(--dim); font-size:12px; }
   .note p { margin:3px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+  a.ref { display:block; color:var(--accent); font-size:13px; margin:2px 0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none; }
+  a.ref:hover { text-decoration:underline; }
   .empty { color:var(--dim); font-style:italic; }
   @media (max-width:800px) { main { grid-template-columns:1fr; overflow-y:auto; } #notes-pane { border-left:0; border-top:1px solid var(--line); } }
 </style>
@@ -71,6 +73,11 @@ function ago(iso) {
   if (s < 86400) return Math.floor(s / 3600) + 'h ago';
   return Math.floor(s / 86400) + 'd ago';
 }
+function link(u) {
+  const a = el('a', 'ref', u.replace(/^https?:\/\//, ''));
+  a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = u;
+  return a;
+}
 function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -88,6 +95,7 @@ function renderCards(flashId) {
     d.append(top);
     if (c.project) d.append(el('div', 'project', c.project));
     if (c.task) d.append(el('div', 'task', c.task));
+    if (c.url) d.append(link(c.url));
     if (c.activity) d.append(el('div', 'activity', c.activity));
     const w = el('div', 'when', ago(c.updated)); w.dataset.t = c.updated;
     d.append(w);
@@ -102,6 +110,7 @@ function noteEl(n) {
   const t = el('span', '', ago(n.time)); t.dataset.t = n.time;
   m.append(t);
   d.append(m, el('p', '', n.text));
+  if (n.url) d.append(link(n.url));
   return d;
 }
 function renderNotes() {

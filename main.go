@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -165,6 +166,16 @@ func clip(s string, n int) string {
 	return s
 }
 
+// cleanURL keeps only absolute http(s) URLs (no javascript: etc.); anything else becomes "".
+func cleanURL(raw string) string {
+	raw = clip(raw, 500)
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return raw
+}
+
 func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.store.Snapshot())
 }
@@ -177,6 +188,7 @@ func (s *server) handlePostCard(w http.ResponseWriter, r *http.Request) {
 	c.ID, c.Agent = clip(c.ID, 100), clip(c.Agent, 60)
 	c.Project, c.Task = clip(c.Project, 100), clip(c.Task, 200)
 	c.Phase, c.Activity = strings.ToLower(clip(c.Phase, 30)), clip(c.Activity, 300)
+	c.URL = cleanURL(c.URL)
 	if c.Agent == "" {
 		c.Agent = s.whoami(r)
 	}
@@ -201,6 +213,7 @@ func (s *server) handlePostNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n.Agent, n.Project, n.Text = clip(n.Agent, 60), clip(n.Project, 100), clip(n.Text, 500)
+	n.URL = cleanURL(n.URL)
 	if n.Agent == "" {
 		n.Agent = s.whoami(r)
 	}
