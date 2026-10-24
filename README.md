@@ -10,6 +10,10 @@ TS_AUTHKEY=tskey-... go run . -hostname botboard   # then open http://botboard/ 
 go run . -local :8080                              # dev mode, no Tailscale
 ```
 
+To use a self-hosted [headscale](https://github.com/juanfont/headscale) server instead of Tailscale's
+control plane, pass `-control-url https://headscale.example.com` (or set `TS_CONTROL_URL`) and use a
+headscale pre-auth key as `TS_AUTHKEY`. `-tls` does not work with headscale (no cert issuing); use plain HTTP.
+
 Without `TS_AUTHKEY`, the login URL is printed in the log on first start (state is kept in the user
 config dir, or `-state-dir`). `-tls` serves HTTPS on :443 (requires HTTPS enabled for the tailnet).
 Access control is the tailnet itself (use ACLs); if `agent` is omitted, the calling node's name is used.

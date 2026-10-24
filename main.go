@@ -34,6 +34,7 @@ func main() {
 	var (
 		hostname = flag.String("hostname", "botboard", "tailnet hostname")
 		stateDir = flag.String("state-dir", "", "tsnet state dir (default: user config dir)")
+		control  = flag.String("control-url", os.Getenv("TS_CONTROL_URL"), "coordination server URL, e.g. https://headscale.example.com (default: Tailscale; env TS_CONTROL_URL)")
 		useTLS   = flag.Bool("tls", false, "serve HTTPS on :443 with a Tailscale cert (needs HTTPS enabled in the tailnet)")
 		local_   = flag.String("local", "", "skip Tailscale and listen on this address instead, e.g. :8080 (for development)")
 	)
@@ -57,7 +58,7 @@ func main() {
 		ln, err = net.Listen("tcp", *local_)
 		log.Printf("listening on %s (no tailscale)", *local_)
 	} else {
-		ts := &tsnet.Server{Hostname: *hostname, Dir: *stateDir} // TS_AUTHKEY is read from the environment
+		ts := &tsnet.Server{Hostname: *hostname, Dir: *stateDir, ControlURL: *control} // TS_AUTHKEY is read from the environment
 		defer ts.Close()
 		if srv.lc, err = ts.LocalClient(); err != nil {
 			log.Fatal(err)
@@ -67,6 +68,9 @@ func main() {
 		cancel()
 		if upErr != nil {
 			log.Fatalf("tailscale up: %v (set TS_AUTHKEY, or follow the login URL in the logs)", upErr)
+		}
+		if *useTLS && *control != "" {
+			log.Print("warning: -tls relies on Tailscale-issued certs, which headscale does not provide; expect cert errors")
 		}
 		if *useTLS {
 			ln, err = ts.ListenTLS("tcp", ":443")
