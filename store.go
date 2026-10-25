@@ -106,6 +106,21 @@ func (s *Store) DeleteCard(id string) bool {
 	return true
 }
 
+// ExpireCards removes cards not updated within maxAge and returns how many were removed.
+func (s *Store) ExpireCards(maxAge time.Duration) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for id, c := range s.cards {
+		if time.Since(c.Updated) > maxAge {
+			delete(s.cards, id)
+			s.broadcast(Event{Type: "card_removed", ID: id})
+			n++
+		}
+	}
+	return n
+}
+
 func (s *Store) AddNote(n Note) Note {
 	s.mu.Lock()
 	defer s.mu.Unlock()
