@@ -62,6 +62,8 @@ The GHCR package is private by default: make it public in the package settings, 
 | `REDIS_KEY` | `-redis-key` | Redis hash key (default `<FLY_APP_NAME or hostname>:tsnet`) |
 | `BOTBOARD_STATE_KEY` | | base64 32 bytes; encrypt the Redis state at rest |
 | `BOTBOARD_TLS` | `-tls` | `1`: HTTPS on :443 with a Tailscale cert (not headscale) |
+| `BOTBOARD_FADE_AFTER` | `-fade-after` | dim cards not updated for this long (Go duration, default `2h`, `0` = off) |
+| `BOTBOARD_EXPIRE_AFTER` | `-expire-after` | remove cards not updated for this long (default `24h`, `0` = off) |
 | `BOTBOARD_LOCAL` | `-local` | listen on this address, skip Tailscale (development only) |
 
 ### State: where the node identity lives

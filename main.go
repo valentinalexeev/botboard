@@ -29,21 +29,32 @@ var webFS embed.FS
 type server struct {
 	store *Store
 	lc    *local.Client // nil in -local mode
+
+	fadeAfter, expireAfter time.Duration // 0 = off; sent to the dashboard
 }
 
 func main() {
 	var (
-		hostname = flag.String("hostname", env("TS_HOSTNAME", "botboard"), "tailnet hostname (env TS_HOSTNAME)")
-		stateDir = flag.String("state-dir", os.Getenv("TS_STATE_DIR"), "tsnet state dir (env TS_STATE_DIR; default: user config dir)")
-		redisURL = flag.String("redis-url", os.Getenv("REDIS_URL"), "keep tailnet state in this Redis instead of on disk (env REDIS_URL)")
-		redisKey = flag.String("redis-key", os.Getenv("REDIS_KEY"), "Redis hash key for the state (env REDIS_KEY; default <FLY_APP_NAME or hostname>:tsnet)")
-		control  = flag.String("control-url", os.Getenv("TS_CONTROL_URL"), "coordination server URL, e.g. https://headscale.example.com (default: Tailscale; env TS_CONTROL_URL)")
-		useTLS   = flag.Bool("tls", os.Getenv("BOTBOARD_TLS") == "1", "serve HTTPS on :443 with a Tailscale cert (needs HTTPS enabled in the tailnet)")
-		local_   = flag.String("local", os.Getenv("BOTBOARD_LOCAL"), "skip Tailscale and listen on this address instead, e.g. :8080 (for development)")
+		hostname    = flag.String("hostname", env("TS_HOSTNAME", "botboard"), "tailnet hostname (env TS_HOSTNAME)")
+		stateDir    = flag.String("state-dir", os.Getenv("TS_STATE_DIR"), "tsnet state dir (env TS_STATE_DIR; default: user config dir)")
+		redisURL    = flag.String("redis-url", os.Getenv("REDIS_URL"), "keep tailnet state in this Redis instead of on disk (env REDIS_URL)")
+		redisKey    = flag.String("redis-key", os.Getenv("REDIS_KEY"), "Redis hash key for the state (env REDIS_KEY; default <FLY_APP_NAME or hostname>:tsnet)")
+		control     = flag.String("control-url", os.Getenv("TS_CONTROL_URL"), "coordination server URL, e.g. https://headscale.example.com (default: Tailscale; env TS_CONTROL_URL)")
+		useTLS      = flag.Bool("tls", os.Getenv("BOTBOARD_TLS") == "1", "serve HTTPS on :443 with a Tailscale cert (needs HTTPS enabled in the tailnet)")
+		fadeAfter   = flag.Duration("fade-after", envDuration("BOTBOARD_FADE_AFTER", 2*time.Hour), "dim cards not updated for this long; 0 disables (env BOTBOARD_FADE_AFTER)")
+		expireAfter = flag.Duration("expire-after", envDuration("BOTBOARD_EXPIRE_AFTER", 24*time.Hour), "remove cards not updated for this long; 0 disables (env BOTBOARD_EXPIRE_AFTER)")
+		local_      = flag.String("local", os.Getenv("BOTBOARD_LOCAL"), "skip Tailscale and listen on this address instead, e.g. :8080 (for development)")
 	)
 	flag.Parse()
 
-	srv := &server{store: NewStore()}
+	srv := &server{store: NewStore(), fadeAfter: *fadeAfter, expireAfter: *expireAfter}
+	if *expireAfter > 0 {
+		go func() {
+			for range time.Tick(time.Minute) {
+				srv.store.ExpireCards(*expireAfter)
+			}
+		}()
+	}
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(webFS, "web")
 	mux.Handle("GET /", http.FileServerFS(sub))
@@ -125,6 +136,13 @@ func main() {
 func env(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
+	}
+	return def
+}
+
+func envDuration(k string, def time.Duration) time.Duration {
+	if d, err := time.ParseDuration(os.Getenv(k)); err == nil {
+		return d
 	}
 	return def
 }
@@ -236,7 +254,8 @@ func (s *server) handleWS(w http.ResponseWriter, r *http.Request) {
 	defer unsub()
 
 	ctx := conn.CloseRead(r.Context()) // we only write; this also handles pings/close
-	if err := wsjson.Write(ctx, conn, map[string]any{"type": "snapshot", "cards": snap.Cards, "notes": snap.Notes}); err != nil {
+	if err := wsjson.Write(ctx, conn, map[string]any{"type": "snapshot", "cards": snap.Cards, "notes": snap.Notes,
+		"fade_after": s.fadeAfter.Seconds(), "expire_after": s.expireAfter.Seconds()}); err != nil {
 		return
 	}
 	ping := time.NewTicker(25 * time.Second)

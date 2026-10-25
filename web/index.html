@@ -28,6 +28,8 @@
   #notes-pane { border-left:1px solid var(--line); background:var(--panel); }
   #cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; align-items:start; }
   .card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--c,var(--other)); border-radius:8px; padding:14px 16px; min-width:0; }
+  .card.faded { opacity:.45; transition:opacity 1s; }
+  .card.faded:hover { opacity:1; }
   .card.flash { animation:flash 1.2s ease-out; }
   @keyframes flash { from { box-shadow:0 0 0 2px var(--c,var(--accent)); } to { box-shadow:0 0 0 0 transparent; } }
   .row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -73,6 +75,8 @@ function ago(iso) {
   if (s < 86400) return Math.floor(s / 3600) + 'h ago';
   return Math.floor(s / 86400) + 'd ago';
 }
+let fadeAfter = 0;   // seconds, from the server; 0 = never fade
+const isFaded = iso => fadeAfter > 0 && (Date.now() - new Date(iso)) / 1000 > fadeAfter;
 function link(u) {
   const a = el('a', 'ref', u.replace(/^https?:\/\//, ''));
   a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = u;
@@ -89,6 +93,8 @@ function renderCards(flashId) {
   const box = $('cards');
   box.replaceChildren(...list.map(c => {
     const d = el('div', 'card' + (c.id === flashId ? ' flash' : ''));
+    d.dataset.t = c.updated; d.dataset.card = '1';
+    if (isFaded(c.updated)) d.classList.add('faded');
     d.style.setProperty('--c', `var(${PHASES[c.phase] || '--other'})`);
     const top = el('div', 'row');
     top.append(el('span', 'agent', c.agent), c.phase ? el('span', 'phase', c.phase) : '');
@@ -131,6 +137,7 @@ function connect() {
     const m = JSON.parse(ev.data);
     switch (m.type) {
       case 'snapshot':
+        fadeAfter = m.fade_after || 0;
         cards.clear(); notes.clear();
         m.cards.forEach(c => cards.set(c.id, c));
         m.notes.forEach(n => notes.set(n.id, n));
@@ -148,7 +155,10 @@ function connect() {
     retry = Math.min(retry * 2, 10000);
   };
 }
-setInterval(() => document.querySelectorAll('[data-t]').forEach(e => e.textContent = ago(e.dataset.t)), 15000);
+setInterval(() => {
+  document.querySelectorAll('[data-t]:not([data-card])').forEach(e => e.textContent = ago(e.dataset.t));
+  document.querySelectorAll('[data-card]').forEach(e => e.classList.toggle('faded', isFaded(e.dataset.t)));
+}, 15000);
 connect();
 </script>
 </body>
