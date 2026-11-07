@@ -36,6 +36,9 @@ Task card, upserted by `id` (default: agent+project+task). Omitted fields keep t
 so `{"agent":"a","project":"p","task":"t","activity":"..."}` is enough for updates.
 Suggested phases (coloured): design, plan, build, test, review, deploy, done, blocked; any text works.
 Both cards and notes accept an optional `url` (one http(s) link: ticket, PR, file); other schemes are dropped.
+Cards with phase `blocked` are shown in a separate **Blocked** section at the top of the board (longest
+waiting first, never faded). Posting `"phase":"blocked"` requires, in the same request, `url` (where the
+decision is expected) and `activity` (what is blocked and why); otherwise the request gets HTTP 400.
 
 ```sh
 curl -X POST http://botboard/api/cards -d '{"agent":"coder-1","project":"shop","task":"Add cart",

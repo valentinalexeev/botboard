@@ -24,9 +24,17 @@
   #status.on i { background:var(--done); }
   main { flex:1; min-height:0; display:grid; grid-template-columns:1fr 340px; }
   section { overflow-y:auto; padding:20px; }
+  #left { overflow-y:auto; }
+  #left > section { overflow:visible; }
+  #blocked-pane { border-bottom:1px solid var(--line); }
+  #blocked-pane h2 { color:var(--blocked); }
+  #blocked-pane h2 .count { background:var(--blocked); color:var(--bg); border-radius:99px; padding:0 7px; margin-left:6px; }
+  .card.is-blocked { border-color:var(--blocked); border-left-width:4px; }
+  .card.is-blocked .activity { color:var(--text); border-top-style:solid; }
+  .decision { font-size:12px; color:var(--dim); margin-top:8px; }
   section h2 { margin:0 0 14px; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); font-weight:600; }
   #notes-pane { border-left:1px solid var(--line); background:var(--panel); }
-  #cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; align-items:start; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; align-items:start; }
   .card { background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--c,var(--other)); border-radius:8px; padding:14px 16px; min-width:0; }
   .card.faded { opacity:.45; transition:opacity 1s; }
   .card.faded:hover { opacity:1; }
@@ -47,7 +55,7 @@
   a.ref { display:block; color:var(--accent); font-size:13px; margin:2px 0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none; }
   a.ref:hover { text-decoration:underline; }
   .empty { color:var(--dim); font-style:italic; }
-  @media (max-width:800px) { main { grid-template-columns:1fr; overflow-y:auto; } #notes-pane { border-left:0; border-top:1px solid var(--line); } }
+  @media (max-width:800px) { main { grid-template-columns:1fr; overflow-y:auto; } #left { overflow:visible; } #notes-pane { border-left:0; border-top:1px solid var(--line); } }
 </style>
 </head>
 <body>
@@ -58,7 +66,10 @@
   <span id="status"><i></i><span>connecting…</span></span>
 </header>
 <main>
-  <section><h2>Working now</h2><div id="cards"></div><p id="cards-empty" class="empty">No agents have reported in yet.</p></section>
+  <div id="left">
+    <section id="blocked-pane"><h2>Blocked<span class="count" id="blocked-count" hidden></span></h2><div id="blocked" class="cards"></div><p id="blocked-empty" class="empty">Nothing is blocked.</p></section>
+    <section><h2>Working now</h2><div id="cards" class="cards"></div><p id="cards-empty" class="empty">No agents have reported in yet.</p></section>
+  </div>
   <section id="notes-pane"><h2>Notes</h2><div id="notes"></div><p id="notes-empty" class="empty">Nothing yet.</p></section>
 </main>
 <script>
@@ -88,26 +99,42 @@ function el(tag, cls, text) {
   if (text !== undefined) e.textContent = text;   // textContent only: agent input is never HTML
   return e;
 }
-function renderCards(flashId) {
-  const list = [...cards.values()].sort((a, b) => new Date(b.updated) - new Date(a.updated));
-  const box = $('cards');
-  box.replaceChildren(...list.map(c => {
-    const d = el('div', 'card' + (c.id === flashId ? ' flash' : ''));
-    d.dataset.t = c.updated; d.dataset.card = '1';
-    if (isFaded(c.updated)) d.classList.add('faded');
-    d.style.setProperty('--c', `var(${PHASES[c.phase] || '--other'})`);
-    const top = el('div', 'row');
-    top.append(el('span', 'agent', c.agent), c.phase ? el('span', 'phase', c.phase) : '');
-    d.append(top);
-    if (c.project) d.append(el('div', 'project', c.project));
-    if (c.task) d.append(el('div', 'task', c.task));
+function cardEl(c, flashId) {
+  const blocked = c.phase === 'blocked';
+  const d = el('div', 'card' + (blocked ? ' is-blocked' : '') + (c.id === flashId ? ' flash' : ''));
+  d.dataset.t = c.updated; d.dataset.card = '1';
+  if (blocked) d.dataset.blocked = '1';   // never fade what is waiting for a human
+  else if (isFaded(c.updated)) d.classList.add('faded');
+  d.style.setProperty('--c', `var(${PHASES[c.phase] || '--other'})`);
+  const top = el('div', 'row');
+  top.append(el('span', 'agent', c.agent), c.phase ? el('span', 'phase', c.phase) : '');
+  d.append(top);
+  if (c.project) d.append(el('div', 'project', c.project));
+  if (c.task) d.append(el('div', 'task', c.task));
+  if (blocked) {
+    if (c.activity) d.append(el('div', 'activity', c.activity));
+    if (c.url) d.append(el('div', 'decision', 'decision needed at:'), link(c.url));
+  } else {
     if (c.url) d.append(link(c.url));
     if (c.activity) d.append(el('div', 'activity', c.activity));
-    const w = el('div', 'when', ago(c.updated)); w.dataset.t = c.updated;
-    d.append(w);
-    return d;
-  }));
-  $('cards-empty').hidden = list.length > 0;
+  }
+  const w = el('div', 'when', (blocked ? 'blocked ' : '') + ago(c.updated)); w.dataset.t = c.updated;
+  if (blocked) w.dataset.prefix = 'blocked ';
+  d.append(w);
+  return d;
+}
+function renderCards(flashId) {
+  const all = [...cards.values()];
+  // Blocked: longest-waiting first. Working: most recently updated first.
+  const blocked = all.filter(c => c.phase === 'blocked').sort((a, b) => new Date(a.updated) - new Date(b.updated));
+  const working = all.filter(c => c.phase !== 'blocked').sort((a, b) => new Date(b.updated) - new Date(a.updated));
+  $('blocked').replaceChildren(...blocked.map(c => cardEl(c, flashId)));
+  $('cards').replaceChildren(...working.map(c => cardEl(c, flashId)));
+  $('blocked-empty').hidden = blocked.length > 0;
+  $('blocked-count').hidden = blocked.length === 0;
+  $('blocked-count').textContent = blocked.length;
+  $('cards-empty').hidden = working.length > 0;
+  document.title = blocked.length ? `(${blocked.length} blocked) Botboard` : 'Botboard';
 }
 function noteEl(n) {
   const d = el('div', 'note');
@@ -156,8 +183,8 @@ function connect() {
   };
 }
 setInterval(() => {
-  document.querySelectorAll('[data-t]:not([data-card])').forEach(e => e.textContent = ago(e.dataset.t));
-  document.querySelectorAll('[data-card]').forEach(e => e.classList.toggle('faded', isFaded(e.dataset.t)));
+  document.querySelectorAll('[data-t]:not([data-card])').forEach(e => e.textContent = (e.dataset.prefix || '') + ago(e.dataset.t));
+  document.querySelectorAll('[data-card]:not([data-blocked])').forEach(e => e.classList.toggle('faded', isFaded(e.dataset.t)));
 }, 15000);
 connect();
 </script>

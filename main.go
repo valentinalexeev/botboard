@@ -214,7 +214,21 @@ func (s *server) handlePostCard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "agent is required", http.StatusBadRequest)
 		return
 	}
+	if err := checkBlocked(c); err != "" {
+		http.Error(w, err, http.StatusBadRequest)
+		return
+	}
 	writeJSON(w, http.StatusOK, s.store.UpsertCard(c))
+}
+
+// checkBlocked enforces that a card reported as blocked says, in the same request, where the
+// decision is expected (url) and what is blocked and why (activity). Values from an earlier
+// update are not reused: they usually describe the work, not the decision. Returns "" if ok.
+func checkBlocked(c Card) string {
+	if c.Phase != "blocked" || (c.URL != "" && c.Activity != "") {
+		return ""
+	}
+	return "phase \"blocked\" needs url (http(s) link where the decision is expected) and activity (what is blocked and why)"
 }
 
 func (s *server) handleDeleteCard(w http.ResponseWriter, r *http.Request) {
